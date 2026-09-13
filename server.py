@@ -9,9 +9,15 @@ from typing import Optional
 
 app = FastAPI()
 
+# CORS configuration - MUST be placed before any route definitions
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://emotranotepad.vercel.app",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "*"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
