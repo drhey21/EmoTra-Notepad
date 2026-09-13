@@ -2,13 +2,15 @@ import json
 import os
 import time
 from datetime import datetime
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
 
 app = FastAPI()
 
+# Enable CORS for all origins, methods, and headers
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,10 +19,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Global preflight OPTIONS request handler to resolve 404 CORS checks
+@app.options("/{full_path:path}")
+def options_handler(full_path: str):
+    return {}
+
 DATA_FILE = os.path.join(os.path.dirname(__file__), "notes.json")
 USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
 
-# In-memory fallbacks if file system is read-only on host
+# In-memory fallbacks if the remote file system is read-only
 MEMORY_USERS = {}
 MEMORY_NOTES = []
 
@@ -53,7 +60,7 @@ def write_json(path, data):
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
     except Exception as e:
-        print(f"Warning: File system read-only, stored in memory. Error: {e}")
+        print(f"Warning: File write failed, using in-memory state. Error: {e}")
 
 @app.post("/api/register")
 def register(user: UserAuth):
