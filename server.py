@@ -9,15 +9,9 @@ from typing import Optional
 
 app = FastAPI()
 
-# CORS configuration - MUST be placed before any route definitions
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://emotranotepad.vercel.app",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "*"
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -25,6 +19,10 @@ app.add_middleware(
 
 DATA_FILE = os.path.join(os.path.dirname(__file__), "notes.json")
 USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
+
+# In-memory fallbacks if file system is read-only on host
+MEMORY_USERS = {}
+MEMORY_NOTES = []
 
 class UserAuth(BaseModel):
     username: str
@@ -38,16 +36,24 @@ class NoteItem(BaseModel):
 
 def read_json(path):
     if not os.path.exists(path):
-        return [] if path == DATA_FILE else {}
+        return MEMORY_NOTES if path == DATA_FILE else MEMORY_USERS
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
-        return [] if path == DATA_FILE else {}
+        return MEMORY_NOTES if path == DATA_FILE else MEMORY_USERS
 
 def write_json(path, data):
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+    global MEMORY_USERS, MEMORY_NOTES
+    if path == USERS_FILE:
+        MEMORY_USERS = data
+    else:
+        MEMORY_NOTES = data
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        print(f"Warning: File system read-only, stored in memory. Error: {e}")
 
 @app.post("/api/register")
 def register(user: UserAuth):
@@ -106,4 +112,4 @@ def delete_note(note_id: int, x_user: Optional[str] = Header(None)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
